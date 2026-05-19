@@ -17,7 +17,7 @@ export const Navbar = ({ lang, theme, view, user, T, toggleLang, setView, setSho
   <nav className={`fixed top-0 left-0 right-0 z-[100] px-4 md:px-6 py-3 backdrop-blur-2xl border-b transition-all duration-300 ${theme === 'dark' ? 'bg-neutral-950/70 border-white/[0.04]' : 'bg-white/70 border-black/5'}`}>
     <div className="max-w-7xl mx-auto flex items-center justify-between">
       <button className="flex items-center gap-2 md:gap-3 group" onClick={() => setView('landing')}>
-        <Trophy size={20} className="md:w-7 md:h-7 text-primary group-hover:scale-110 transition-transform" />
+        <img src="/Asset%203.png" alt="Logo" className="w-7 md:w-9 h-7 md:h-9 object-contain group-hover:scale-110 transition-transform" />
         <div className="flex flex-col">
           <span className="font-black text-[9px] md:text-sm tracking-tighter leading-none">
             {lang === 'ar' ? 'بافيليون الخبر' : 'PAVILION ALKHOBAR'}
