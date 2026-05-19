@@ -119,6 +119,7 @@ export default function App() {
       finalRes = { id: docRef.id, ...reservationData };
     } catch (err: any) {
       console.warn('Firestore save failed, using local backup:', err.message);
+      setBookingError('⚠️ ' + (lang === 'ar' ? 'تم حفظ الحجز محلياً بسبب مشكلة في الاتصال. سنقوم بمزامنته لاحقاً.' : 'Saved locally due to connection issue. Will sync later.'));
       try {
         const stored = JSON.parse(localStorage.getItem('pendingReservations') || '[]');
         stored.push(reservationData);

@@ -33,13 +33,20 @@ export const subscribeToCollection = (collectionName: string, setter: (data: any
 };
 
 export const subscribeToReservations = (userId: string | null, isAdmin: boolean, setter: (data: any[]) => void) => {
-  let q = query(collection(db, 'reservations'), orderBy('createdAt', 'desc'));
-  if (!isAdmin && userId) {
-    q = query(collection(db, 'reservations'), where('userId', '==', userId), orderBy('createdAt', 'desc'));
-  }
-  return onSnapshot(q, (snapshot) => {
-    setter(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-  });
+  const ref = collection(db, 'reservations');
+  const q = !isAdmin && userId
+    ? query(ref, where('userId', '==', userId))
+    : query(ref);
+  return onSnapshot(q,
+    (snapshot) => {
+      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      data.sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0));
+      setter(data);
+    },
+    (error) => {
+      console.warn('Reservations subscription error:', error.message);
+    }
+  );
 };
 
 export const updateDocument = (collectionName: string, id: string, updates: any) => {
@@ -114,6 +121,27 @@ export const bulkImportMatches = async (matches: any[], mallId: string) => {
   }
   
   return batch.commit();
+};
+
+export const syncLocalReservations = async (): Promise<number> => {
+  try {
+    const stored = JSON.parse(localStorage.getItem('pendingReservations') || '[]');
+    if (!stored.length) return 0;
+    let synced = 0;
+    for (const res of stored) {
+      try {
+        await addDoc(collection(db, 'reservations'), res);
+        synced++;
+      } catch (e) {
+        console.warn('Failed to sync reservation:', e);
+      }
+    }
+    localStorage.removeItem('pendingReservations');
+    return synced;
+  } catch (e) {
+    console.warn('Sync failed:', e);
+    return 0;
+  }
 };
 
 export const importFromCsv = async (csvData: any[], mallId: string, tournamentId: string) => {

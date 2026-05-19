@@ -8,7 +8,7 @@ import {
   Download, FileSpreadsheet
 } from 'lucide-react';
 import { Translation, Language, Match, Team, Tournament, Mall, Reservation, MatchVenueConfig, SeatTier } from '../../types';
-import { updateDocument, addDocument, deleteDocument, setDocument, seedInitialData, bulkImportMatches, importFromCsv } from '../../services/firebase';
+import { updateDocument, addDocument, deleteDocument, setDocument, seedInitialData, bulkImportMatches, importFromCsv, syncLocalReservations } from '../../services/firebase';
 import { MATCHES, ALL_TEAMS, WORLD_CUP_2026, ALKHOBAR_PAVILION } from '../../data/matches';
 
 interface AdminDashboardProps {
@@ -445,9 +445,19 @@ export const AdminDashboard = ({
               <p className="text-neutral-500 text-[10px] font-bold max-w-xs mb-6 uppercase tracking-[0.15em] leading-relaxed">
                 {lang === 'ar' ? 'سيتم إعادة تعيين البيانات الأساسية' : 'Reset and seed core database data'}
               </p>
-              <button onClick={seedData} className="btn-primary flex items-center gap-3 text-xs">
-                <ShieldCheck size={16} /> {T.reSeed}
-              </button>
+              <div className="flex flex-col gap-3 self-stretch">
+                <button onClick={seedData} className="btn-primary flex items-center justify-center gap-3 text-xs w-full">
+                  <ShieldCheck size={16} /> {T.reSeed}
+                </button>
+                {navigator.onLine && (
+                  <button onClick={async () => {
+                    const n = await syncLocalReservations();
+                    alert(n > 0 ? `Synced ${n} ${lang === 'ar' ? 'حجز' : 'reservations'}!` : (lang === 'ar' ? 'لا توجد حجوزات محلية' : 'No local reservations'));
+                  }} className="w-full bg-green-600 text-white py-3 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-3">
+                    <Upload size={14} /> {lang === 'ar' ? 'مزامنة الحجوزات المحلية' : 'Sync Local Reservations'}
+                  </button>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
