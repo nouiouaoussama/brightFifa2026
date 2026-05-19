@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, loginWithGoogle, updateDocument, addDocument, subscribeToCollection, subscribeToReservations } from './services/firebase';
+import { auth, loginWithGoogle, updateDocument, addDocument, setDocument, subscribeToCollection, subscribeToReservations } from './services/firebase';
 import { TRANSLATIONS } from './translations';
 import { Language, Match, Reservation, Theme, Team, Tournament, Mall, MatchVenueConfig, SeatTier } from './types';
 import { Navbar } from './components/layout/Navbar';
@@ -118,13 +118,19 @@ export default function App() {
       const docRef = await addDocument('reservations', reservationData);
       finalRes = { id: docRef.id, ...reservationData };
     } catch (err: any) {
-      console.warn('Firestore save failed, using local backup:', err.message);
-      setBookingError('⚠️ ' + (lang === 'ar' ? 'تم حفظ الحجز محلياً بسبب مشكلة في الاتصال. سنقوم بمزامنته لاحقاً.' : 'Saved locally due to connection issue. Will sync later.'));
+      console.warn('addDoc failed:', err.message);
       try {
-        const stored = JSON.parse(localStorage.getItem('pendingReservations') || '[]');
-        stored.push(reservationData);
-        localStorage.setItem('pendingReservations', JSON.stringify(stored));
-      } catch (e) {}
+        await setDocument('reservations', serial, reservationData);
+        finalRes = { id: serial, ...reservationData };
+      } catch (err2: any) {
+        console.warn('setDoc also failed:', err2.message);
+        setBookingError('⚠️ ' + (err.message || err2.message));
+        try {
+          const stored = JSON.parse(localStorage.getItem('pendingReservations') || '[]');
+          stored.push(reservationData);
+          localStorage.setItem('pendingReservations', JSON.stringify(stored));
+        } catch (e) {}
+      }
     }
 
     setLastReservation(finalRes);

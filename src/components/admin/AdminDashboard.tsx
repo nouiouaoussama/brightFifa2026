@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, Users, MapPin, Database, CheckCircle,
@@ -8,7 +8,7 @@ import {
   Download, FileSpreadsheet
 } from 'lucide-react';
 import { Translation, Language, Match, Team, Tournament, Mall, Reservation, MatchVenueConfig, SeatTier } from '../../types';
-import { updateDocument, addDocument, deleteDocument, setDocument, seedInitialData, bulkImportMatches, importFromCsv, syncLocalReservations } from '../../services/firebase';
+import { db, updateDocument, addDocument, deleteDocument, setDocument, seedInitialData, bulkImportMatches, importFromCsv, syncLocalReservations, testFirestoreConnection } from '../../services/firebase';
 import { MATCHES, ALL_TEAMS, WORLD_CUP_2026, ALKHOBAR_PAVILION } from '../../data/matches';
 
 interface AdminDashboardProps {
@@ -37,6 +37,15 @@ export const AdminDashboard = ({
   const [bulkJson, setBulkJson] = useState('');
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [diagResult, setDiagResult] = useState<{ ok: boolean; message: string; dbId: string } | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+
+  useEffect(() => {
+    syncLocalReservations().then(n => {
+      if (n > 0) console.log(`Auto-synced ${n} local reservations`);
+    });
+  }, []);
 
   const [newMatch, setNewMatch] = useState({
     team1Id: '', team2Id: '', dateEn: '', dateAr: '',
@@ -458,6 +467,35 @@ export const AdminDashboard = ({
                   </button>
                 )}
               </div>
+            </div>
+
+            <div className="card-blur p-6 rounded-[2rem] border border-white/[0.04] space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center text-yellow-500">
+                  <ShieldCheck size={22} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase">Firestore Diagnostics</h3>
+                  <p className="text-[8px] font-bold text-neutral-600 uppercase tracking-widest">{lang === 'ar' ? 'اختبار الاتصال بقاعدة البيانات' : 'Test database connection'}</p>
+                </div>
+              </div>
+              <button onClick={async () => {
+                setDiagLoading(true);
+                setDiagResult(null);
+                const r = await testFirestoreConnection();
+                setDiagResult(r);
+                setDiagLoading(false);
+              }} disabled={diagLoading} className="w-full bg-yellow-600 text-white py-3 rounded-2xl font-black text-[10px] uppercase flex items-center justify-center gap-2 disabled:opacity-30">
+                {diagLoading ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Testing...</> : <><ShieldCheck size={14} /> Test Connection</>}
+              </button>
+              {diagResult && (
+                <div className={`p-4 rounded-2xl text-[10px] font-bold text-left ${
+                  diagResult.ok ? 'bg-green-500/10 border border-green-500/20 text-green-500' : 'bg-red-500/10 border border-red-500/20 text-red-500'
+                }`}>
+                  <div className="mb-1 font-black text-[9px] uppercase">{diagResult.ok ? 'Connected' : 'Failed'}</div>
+                  <div className="font-mono text-[9px] break-all whitespace-pre-wrap">{diagResult.message}</div>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

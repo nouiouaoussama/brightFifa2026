@@ -182,6 +182,28 @@ export const importFromCsv = async (csvData: any[], mallId: string, tournamentId
   return batch.commit();
 };
 
+export const testFirestoreConnection = async (): Promise<{ ok: boolean; message: string; dbId: string }> => {
+  const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
+  try {
+    const testRef = doc(collection(db, '_connection_test'), `test_${Date.now()}`);
+    await setDoc(testRef, { timestamp: Date.now(), message: 'connection test' });
+    await deleteDoc(testRef);
+    return { ok: true, message: `Connected to database: ${dbId}`, dbId };
+  } catch (err: any) {
+    let message = err.message || String(err);
+    if (message.includes('multi-db')) {
+      message += ' - The named database might not exist. Try using (default) database.';
+    }
+    if (message.includes('permission')) {
+      message += ' - Check Firestore security rules.';
+    }
+    if (message.includes('network')) {
+      message += ' - Check network/firewall or enable Firestore API.';
+    }
+    return { ok: false, message: `DB: ${dbId} — ${message}`, dbId };
+  }
+};
+
 export const createVenueConfig = async (matchId: string, mallId: string) => {
   const configId = `${matchId}_${mallId}`;
   await setDoc(doc(db, 'matchVenueConfigs', configId), {
