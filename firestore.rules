@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'oussama.the.on@gmail.com'
+      );
+    }
+
+    match /test/{testId} {
+      allow read: if true;
+    }
+
+    match /reservations/{reservationId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if true; // Open for preview, can be tightened later
+    }
+
+    match /matches/{matchId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /teams/{teamId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /tournaments/{tournamentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /malls/{mallId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /matchVenueConfigs/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
