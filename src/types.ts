@@ -54,6 +54,7 @@ export interface Match {
   isArabMatch?: boolean;
   isSaudiMatch?: boolean;
   isFeatured?: boolean;
+  imageUrl?: string;
   tags?: string[];
   round?: string;
   venueAr?: string;
@@ -83,6 +84,7 @@ export interface Reservation {
   guests: number;
   matchId: string;
   mallId: string;
+  venueConfigId?: string;
   placeType: SeatTier;
   status: ReservationStatus;
   attendanceStatus: AttendanceStatus;
@@ -228,7 +230,6 @@ export interface Translation {
   tournamentType: string;
   clubs: string;
   nationalTeams: string;
-  matchTime: string;
   ast: string;
   sortByNearest: string;
   filterByTeam: string;
@@ -269,4 +270,18 @@ export interface Translation {
   saveChanges: string;
   archiveConfirm: string;
   restoreConfirm: string;
+  duplicateBooking: string;
+  backToHome: string;
+  selectVenue: string;
+  dateFrom: string;
+  dateTo: string;
+  filterByDate: string;
+  seatsRemaining: string;
+  venueCapacity: string;
+  matchTime: string;
+  mins: string;
+  bookingConfirmed: string;
+  confirmationSent: string;
+  popular: string;
+  stories: string;
 }

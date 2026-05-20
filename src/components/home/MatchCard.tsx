@@ -11,15 +11,18 @@ interface MatchCardProps {
   tournaments: Tournament[];
   mall?: Mall;
   config?: MatchVenueConfig;
+  venueConfigs?: MatchVenueConfig[];
+  malls?: Mall[];
 }
 
-export const MatchCard = ({ match, lang, T, onClick, teams, tournaments, mall, config }: MatchCardProps) => {
+export const MatchCard = ({ match, lang, T, onClick, teams, tournaments, mall, config, venueConfigs, malls }: MatchCardProps) => {
   const team1 = teams.find(t => t.id === match.team1Id);
   const team2 = teams.find(t => t.id === match.team2Id);
   const tournament = tournaments.find(t => t.id === match.tournamentId);
 
-  const totalSeats = config ? Object.values(config.tiers).reduce((a, t) => a + t.totalSeats, 0) : 0;
-  const bookedSeats = config ? Object.values(config.tiers).reduce((a, t) => a + t.bookedSeats, 0) : 0;
+  const matchConfigs = venueConfigs?.filter(v => v.matchId === match.id) || (config ? [config] : []);
+  const totalSeats = matchConfigs.reduce((a, cfg) => a + Object.values(cfg.tiers).reduce((s, t) => s + t.totalSeats, 0), 0);
+  const bookedSeats = matchConfigs.reduce((a, cfg) => a + Object.values(cfg.tiers).reduce((s, t) => s + t.bookedSeats, 0), 0);
   const available = totalSeats - bookedSeats;
   const timeRemaining = match.timestamp - Date.now();
   const isSoon = timeRemaining > 0 && timeRemaining < 86400000;
@@ -84,11 +87,27 @@ export const MatchCard = ({ match, lang, T, onClick, teams, tournaments, mall, c
           </span>
           <span className="flex items-center gap-1.5">
             <MapPin size={10} className="md:size-3" />
-            {lang === 'ar' ? mall?.nameAr : mall?.nameEn}
+            {matchConfigs.length > 1
+              ? `${matchConfigs.length} ${lang === 'ar' ? 'مواقع' : 'venues'}`
+              : (lang === 'ar' ? mall?.nameAr : mall?.nameEn)
+            }
           </span>
         </div>
 
-        {config && (
+        {matchConfigs.length > 1 && (
+          <div className="flex flex-wrap gap-1">
+            {matchConfigs.map(cfg => {
+              const ml = malls?.find(m => m.id === cfg.mallId);
+              return (
+                <span key={cfg.id} className="text-[7px] font-bold bg-neutral-800/40 text-neutral-400 px-2 py-0.5 rounded-full">
+                  {lang === 'ar' ? ml?.nameAr : ml?.nameEn || cfg.mallId}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {matchConfigs.length > 0 && (
           <div className="flex items-center justify-between text-[8px] font-bold">
             <span className="flex items-center gap-1 text-green-500">
               <Users size={10} /> {available} {lang === 'ar' ? 'متاح' : 'available'}

@@ -204,6 +204,22 @@ export const testFirestoreConnection = async (): Promise<{ ok: boolean; message:
   }
 };
 
+export const checkDuplicateBooking = async (name: string, phone: string, matchId: string): Promise<boolean> => {
+  try {
+    const q = query(
+      collection(db, 'reservations'),
+      where('name', '==', name),
+      where('phone', '==', phone),
+      where('matchId', '==', matchId)
+    );
+    const snapshot = await getDocs(q);
+    return !snapshot.empty;
+  } catch (e) {
+    console.warn('Duplicate check failed:', e);
+    return false;
+  }
+};
+
 export const createVenueConfig = async (matchId: string, mallId: string) => {
   const configId = `${matchId}_${mallId}`;
   await setDoc(doc(db, 'matchVenueConfigs', configId), {

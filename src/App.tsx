@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, loginWithGoogle, updateDocument, addDocument, setDocument, subscribeToCollection, subscribeToReservations } from './services/firebase';
+import { auth, loginWithGoogle, updateDocument, addDocument, setDocument, subscribeToCollection, subscribeToReservations, checkDuplicateBooking } from './services/firebase';
 import { TRANSLATIONS } from './translations';
 import { Language, Match, Reservation, Theme, Team, Tournament, Mall, MatchVenueConfig, SeatTier } from './types';
 import { Navbar } from './components/layout/Navbar';
@@ -38,10 +38,13 @@ export default function App() {
   const [malls, setMalls] = useState<Mall[]>([ALKHOBAR_PAVILION]);
   const [venueConfigs, setVenueConfigs] = useState<MatchVenueConfig[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [selectedMallId, setSelectedMallId] = useState<string>('');
+  const [venueConfigId, setVenueConfigId] = useState<string>('');
   const [lastReservation, setLastReservation] = useState<Reservation | null>(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminError, setAdminError] = useState('');
   const [bookingError, setBookingError] = useState('');
+  const [duplicateError, setDuplicateError] = useState('');
   const [step, setStep] = useState(1);
   const [bookingFormData, setBookingFormData] = useState({ name: '', phone: '', guests: 1, placeType: 'standard' as SeatTier });
   const [isBooking, setIsBooking] = useState(false);
@@ -91,20 +94,32 @@ export default function App() {
 
   const handleBooking = useCallback(async () => {
     setBookingError('');
+    setDuplicateError('');
     setIsBooking(true);
     if (!selectedMatchId) { setBookingError('Please select a match'); setIsBooking(false); return; }
     const match = matches.find(m => m.id === selectedMatchId);
     if (!match) { setBookingError('Match not found'); setIsBooking(false); return; }
-    const config = getConfig(selectedMatchId);
+
+    const effectiveMallId = selectedMallId || match.mallId;
+    const config = venueConfigs.find(v => v.matchId === selectedMatchId && v.mallId === effectiveMallId) || DEFAULT_VENUE_CONFIGS(selectedMatchId, effectiveMallId);
     const unitPrice = config.tiers[bookingFormData.placeType]?.price || 50;
     const totalPrice = unitPrice * bookingFormData.guests;
 
+    const isDuplicate = await checkDuplicateBooking(bookingFormData.name, bookingFormData.phone, selectedMatchId);
+    if (isDuplicate) {
+      setDuplicateError(T.duplicateBooking);
+      setIsBooking(false);
+      return;
+    }
+
     const serial = generateSerial();
+    const configId = `${selectedMatchId}_${effectiveMallId}`;
     const reservationData: Omit<Reservation, 'id'> = {
       ...bookingFormData,
       serial,
       matchId: selectedMatchId,
-      mallId: match.mallId,
+      mallId: effectiveMallId,
+      venueConfigId: configId,
       status: 'pending',
       attendanceStatus: 'not_attended',
       paymentStatus: 'unpaid',
@@ -135,11 +150,11 @@ export default function App() {
     }
 
     setLastReservation(finalRes);
-    setStep(4);
+    setStep(5);
     setIsBooking(false);
 
-    handleWhatsAppBooking(match, malls.find(ml => ml.id === match.mallId), finalRes, lang, teams);
-  }, [selectedMatchId, matches, getConfig, bookingFormData, user?.uid, malls, lang, teams]);
+    handleWhatsAppBooking(match, malls.find(ml => ml.id === effectiveMallId), finalRes, lang, teams);
+  }, [selectedMatchId, selectedMallId, matches, venueConfigs, bookingFormData, user?.uid, malls, lang, teams, T.duplicateBooking]);
 
   const handleAdminLogin = async () => {
     setAdminError('');
@@ -202,18 +217,16 @@ export default function App() {
             )}
             <ReservationSection
               matches={matches} malls={malls} teams={teams} T={T} lang={lang}
-              selectedMatchId={selectedMatchId} onSelectMatch={setSelectedMatchId}
+              selectedMatchId={selectedMatchId} onSelectMatch={(id) => { setSelectedMatchId(id); setSelectedMallId(''); setDuplicateError(''); setBookingError(''); }}
               onSubmit={handleBooking} step={step} setStep={setStep}
               formData={bookingFormData} isBooking={isBooking}
               onInputChange={(e: any) => setBookingFormData({ ...bookingFormData, [e.target.name]: e.target.value })}
-              venueConfigs={venueConfigs.map(v => ({ ...v, tiers: getConfig(v.matchId).tiers }))}
-              onWhatsApp={() => {
-                const m = matches.find(mx => mx.id === selectedMatchId);
-                const ml = malls.find(mall => mall.id === m?.mallId);
-                const config = getConfig(selectedMatchId || '');
-                const price = (config?.tiers[bookingFormData.placeType]?.price || 50) * bookingFormData.guests;
-                handleWhatsAppBooking(m, ml, { ...bookingFormData, serial: 'PENDING', price }, lang, teams);
-              }}
+              venueConfigs={venueConfigs}
+              onBackToHome={() => { setStep(1); setView('landing'); setSelectedMatchId(null); setSelectedMallId(''); setDuplicateError(''); setBookingError(''); }}
+              selectedMallId={selectedMallId}
+              onSelectVenue={(mallId) => { setSelectedMallId(mallId); }}
+              duplicateError={duplicateError}
+              bookingError={bookingError}
             />
           </motion.div>
         )}

@@ -146,6 +146,8 @@ export const ScheduleSection = ({ T, lang, matches, malls, tournaments, teams, v
                 teams={teams}
                 lang={lang}
                 T={T}
+                malls={malls}
+                venueConfigs={venueConfigs}
                 config={venueConfigs.find(v => v.matchId === m.id)}
                 onClick={() => onBook(m.id)}
               />

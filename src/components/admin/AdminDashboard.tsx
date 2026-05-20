@@ -5,7 +5,7 @@ import {
   XCircle, Phone, CreditCard, Calendar, Clock, Plus,
   Globe, Trophy, ShieldCheck, Upload, Trash2, Filter,
   DollarSign, UserCheck, Ticket, Edit3, Save, X,
-  Download, FileSpreadsheet, Archive, RotateCcw, Tag, PenSquare
+  Download, FileSpreadsheet, Archive, RotateCcw, Tag, PenSquare, CalendarDays
 } from 'lucide-react';
 import { Translation, Language, Match, Team, Tournament, Mall, Reservation, MatchVenueConfig, SeatTier } from '../../types';
 import { updateDocument, addDocument, deleteDocument, setDocument, seedInitialData, bulkImportMatches, importFromCsv, syncLocalReservations, testFirestoreConnection } from '../../services/firebase';
@@ -32,6 +32,8 @@ export const AdminDashboard = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMatchId, setFilterMatchId] = useState('all');
   const [filterArchive, setFilterArchive] = useState<'active' | 'archived' | 'all'>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [showAddMatch, setShowAddMatch] = useState(false);
   const [editingConfig, setEditingConfig] = useState<string | null>(null);
   const [editTiers, setEditTiers] = useState<any>(null);
@@ -65,7 +67,10 @@ export const AdminDashboard = ({
     const archiveFilter = filterArchive === 'all' ||
       (filterArchive === 'archived' && r.archived) ||
       (filterArchive === 'active' && !r.archived);
-    return matchesSearch && matchesFilter && archiveFilter;
+    const createdAt = r.createdAt || 0;
+    const fromFilter = !dateFrom || createdAt >= new Date(dateFrom).getTime();
+    const toFilter = !dateTo || createdAt <= new Date(dateTo).getTime() + 86400000;
+    return matchesSearch && matchesFilter && archiveFilter && fromFilter && toFilter;
   });
 
   const totalRevenue = reservations.reduce((a, r) => a + (r.paymentStatus === 'paid' ? r.price : 0), 0);
@@ -197,6 +202,25 @@ export const AdminDashboard = ({
                     return <option key={m.id} value={m.id}>{t1?.nameEn} vs {t2?.nameEn}</option>;
                   })}
                 </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <CalendarDays size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600" />
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                    className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl pl-8 pr-2 py-2 text-[10px] font-bold focus:outline-none focus:border-primary" />
+                </div>
+                <span className="text-neutral-600 text-[8px]">-</span>
+                <div className="relative flex-1">
+                  <CalendarDays size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-600" />
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                    className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl pl-8 pr-2 py-2 text-[10px] font-bold focus:outline-none focus:border-primary" />
+                </div>
+                {(dateFrom || dateTo) && (
+                  <button onClick={() => { setDateFrom(''); setDateTo(''); }}
+                    className="text-neutral-600 hover:text-white text-[10px] font-bold px-2">
+                    <X size={12} />
+                  </button>
+                )}
               </div>
               <div className="flex gap-1.5">
                 {[
@@ -482,56 +506,70 @@ export const AdminDashboard = ({
                       </>
                     )}
 
-                    {config && !isEditing && (
-                      <div className="border-t border-white/[0.04] pt-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[8px] font-black uppercase text-neutral-500">{T.manageVenues}</span>
-                          <button onClick={() => startEditConfig(config)} className="text-primary text-[8px] font-black uppercase flex items-center gap-1">
-                            <Edit3 size={10} /> {T.editSeats}
-                          </button>
-                        </div>
-                        {editingConfig === config.id && editTiers ? (
-                          <div className="space-y-2">
-                            {(Object.entries(editTiers) as [SeatTier, any][]).map(([tier, cfg]) => (
-                              <div key={tier} className="grid grid-cols-3 gap-2 text-[10px]">
-                                <span className="font-bold uppercase text-neutral-500">{tier}</span>
-                                <div>
-                                  <span className="text-[6px] text-neutral-600 block">{T.price}</span>
-                                  <input type="number" className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-1 text-xs w-full"
-                                    value={cfg.price} onChange={e => {
-                                      const newTiers = { ...editTiers, [tier]: { ...cfg, price: Number(e.target.value) } };
-                                      setEditTiers(newTiers);
-                                    }} />
+                    {!isEditing && (
+                      <div className="border-t border-white/[0.04] pt-3 space-y-2">
+                        {(() => {
+                          const matchConfigs = venueConfigs.filter(v => v.matchId === m.id);
+                          return matchConfigs.length > 0 ? matchConfigs.map(config => {
+                            const mall = malls.find(ml => ml.id === config.mallId);
+                            return (
+                              <div key={config.id}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[8px] font-black uppercase text-neutral-500">
+                                    {lang === 'ar' ? mall?.nameAr : mall?.nameEn || config.mallId}
+                                  </span>
+                                  <button onClick={() => startEditConfig(config)} className="text-primary text-[7px] font-black uppercase flex items-center gap-1">
+                                    <Edit3 size={8} /> {T.editSeats}
+                                  </button>
                                 </div>
-                                <div>
-                                  <span className="text-[6px] text-neutral-600 block">{lang === 'ar' ? 'مقاعد' : 'Seats'}</span>
-                                  <input type="number" className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-1 text-xs w-full"
-                                    value={cfg.totalSeats} onChange={e => {
-                                      const newTiers = { ...editTiers, [tier]: { ...cfg, totalSeats: Number(e.target.value) } };
-                                      setEditTiers(newTiers);
-                                    }} />
-                                </div>
+                                {editingConfig === config.id && editTiers ? (
+                                  <div className="space-y-1.5 mb-2">
+                                    {(Object.entries(editTiers) as [SeatTier, any][]).map(([tier, cfg]) => (
+                                      <div key={tier} className="grid grid-cols-3 gap-2 text-[10px]">
+                                        <span className="font-bold uppercase text-neutral-500">{tier}</span>
+                                        <div>
+                                          <span className="text-[6px] text-neutral-600 block">{T.price}</span>
+                                          <input type="number" className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-1 text-xs w-full"
+                                            value={cfg.price} onChange={e => {
+                                              const newTiers = { ...editTiers, [tier]: { ...cfg, price: Number(e.target.value) } };
+                                              setEditTiers(newTiers);
+                                            }} />
+                                        </div>
+                                        <div>
+                                          <span className="text-[6px] text-neutral-600 block">{lang === 'ar' ? 'مقاعد' : 'Seats'}</span>
+                                          <input type="number" className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-1 text-xs w-full"
+                                            value={cfg.totalSeats} onChange={e => {
+                                              const newTiers = { ...editTiers, [tier]: { ...cfg, totalSeats: Number(e.target.value) } };
+                                              setEditTiers(newTiers);
+                                            }} />
+                                        </div>
+                                      </div>
+                                    ))}
+                                    <div className="flex gap-2 pt-1">
+                                      <button onClick={saveConfig} className="flex-1 bg-primary text-white py-1.5 rounded-lg text-[9px] font-black uppercase flex items-center justify-center gap-1">
+                                        <Save size={10} /> {T.saveSeats}
+                                      </button>
+                                      <button onClick={() => setEditingConfig(null)} className="px-3 py-1.5 border border-white/[0.06] rounded-lg text-[9px] font-black uppercase text-neutral-500">
+                                        <X size={10} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex gap-2 text-[8px] font-bold flex-wrap">
+                                    {(Object.entries(config.tiers) as [SeatTier, any][]).map(([tier, cfg]) => (
+                                      <span key={tier} className="text-neutral-500 uppercase">
+                                        {tier}: <span className="text-white">{cfg.bookedSeats}/{cfg.totalSeats}</span>
+                                        <span className="text-neutral-600"> · {cfg.price} SAR</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            ))}
-                            <div className="flex gap-2 pt-1">
-                              <button onClick={saveConfig} className="flex-1 bg-primary text-white py-1.5 rounded-lg text-[9px] font-black uppercase flex items-center justify-center gap-1">
-                                <Save size={10} /> {T.saveSeats}
-                              </button>
-                              <button onClick={() => setEditingConfig(null)} className="px-3 py-1.5 border border-white/[0.06] rounded-lg text-[9px] font-black uppercase text-neutral-500">
-                                <X size={10} />
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex gap-3 text-[9px] font-bold">
-                            {(Object.entries(config.tiers) as [SeatTier, any][]).map(([tier, cfg]) => (
-                              <span key={tier} className="text-neutral-500 uppercase">
-                                {tier}: <span className="text-white">{cfg.bookedSeats}/{cfg.totalSeats}</span>
-                                <span className="text-neutral-600"> · {cfg.price} SAR</span>
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                            );
+                          }) : (
+                            <div className="text-[8px] font-bold text-neutral-600">{lang === 'ar' ? 'لا توجد إعدادات مكان' : 'No venue configs'}</div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
