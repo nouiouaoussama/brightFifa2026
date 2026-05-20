@@ -14,18 +14,22 @@ interface NavbarProps {
 }
 
 export const Navbar = ({ lang, theme, view, user, T, toggleLang, setView, setShowAdminLogin }: NavbarProps) => (
-  <nav className={`fixed top-0 left-0 right-0 z-[100] px-4 md:px-6 py-3 backdrop-blur-2xl border-b transition-all duration-300 ${theme === 'dark' ? 'bg-neutral-950/70 border-white/[0.04]' : 'bg-white/70 border-black/5'}`}>
-    <div className="max-w-7xl mx-auto flex items-center justify-between">
-      <button className="group" onClick={() => setView('landing')}>
-        <img src="/Asset%203.png" alt="Logo" className="w-12 md:w-16 h-12 md:h-16 object-contain group-hover:scale-110 transition-transform" />
-      </button>
-
-      <div className="flex items-center gap-2 md:gap-3">
-        {view === 'admin' ? (
+  <nav className={`fixed top-0 left-0 right-0 z-[100] px-4 md:px-6 py-2 md:py-3 backdrop-blur-2xl border-b transition-all duration-300 ${theme === 'dark' ? 'bg-neutral-950/70 border-white/[0.04]' : 'bg-white/70 border-black/5'}`}>
+    <div className="max-w-7xl mx-auto flex items-center justify-between md:grid md:grid-cols-3">
+      <div className="flex items-center md:justify-start">
+        {view === 'admin' && (
           <button onClick={() => setView('landing')} className="btn-ghost px-3 py-2 text-[9px]">
             {T.back}
           </button>
-        ) : (
+        )}
+      </div>
+
+      <button className="group flex justify-center" onClick={() => setView('landing')}>
+        <img src="/Asset%205.png" alt="Logo" className="w-14 md:w-20 h-14 md:h-20 object-contain group-hover:scale-110 transition-transform" />
+      </button>
+
+      <div className="flex items-center justify-end gap-2 md:gap-3">
+        {view !== 'admin' && (
           <>
             <button
               onClick={() => document.getElementById('schedule-section')?.scrollIntoView({ behavior: 'smooth' })}

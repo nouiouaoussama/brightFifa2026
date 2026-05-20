@@ -210,8 +210,8 @@ export default function App() {
         )}
 
         {view === 'booking' && (
-          <motion.div key="booking" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="pt-24">
-            <div className="max-w-4xl mx-auto px-4">
+          <motion.div key="booking" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="pt-16 min-h-screen flex flex-col">
+            <div className="max-w-4xl mx-auto px-4 w-full">
               <button onClick={() => { setStep(1); setSelectedMatchId(null); setSelectedMallId(''); setBookingFormData({ name: '', phone: '', guests: 1, placeType: 'standard' as SeatTier }); setBookingError(''); setDuplicateError(''); setView('landing'); }} className="btn-ghost mb-4 flex items-center gap-2">
                 ← {T.back}
               </button>
@@ -305,12 +305,8 @@ export default function App() {
 
       <footer className="py-12 md:py-20 border-t border-white/[0.04] px-6 text-center">
         <div className="max-w-md mx-auto">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <svg width="24" height="24" className="fill-primary" viewBox="0 0 100 100">
-              <path d="M20 20 L50 20 L30 50 L20 50 Z" />
-              <path d="M60 20 L90 20 L70 50 L60 50 Z" />
-              <path d="M20 60 L80 60 L60 90 L20 90 Z" fillOpacity="0.8" />
-            </svg>
+          <div className="flex flex-col items-center gap-2 mb-4">
+            <img src="/Asset%205.png" alt="Bright Stage Events" className="w-16 md:w-20 h-16 md:h-20 object-contain" />
             <span className="font-black text-sm md:text-lg uppercase tracking-tighter">BRIGHT STAGE EVENTS</span>
           </div>
           <p className="text-neutral-600 text-[10px] md:text-xs mb-6 leading-relaxed">{T.footerText}</p>
@@ -329,7 +325,7 @@ export default function App() {
           </div>
           <div className="mt-6 flex flex-col items-center gap-1">
             <span className="text-[7px] font-black uppercase text-neutral-700">{T.contactUs}</span>
-            <span className="font-black text-primary text-xs md:text-sm tracking-widest">+213 793 37 44 71</span>
+            <span className="font-black text-primary text-xs md:text-sm tracking-widest ltr-force" dir="ltr">+213 793 37 44 71</span>
           </div>
         </div>
       </footer>

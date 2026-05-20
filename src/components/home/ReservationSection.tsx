@@ -1,6 +1,9 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { Phone, Users, ChevronRight, CheckCircle, MapPin, Clock, User, Minus, Plus, Home } from 'lucide-react';
+import { Phone, Users, ChevronRight, CheckCircle, MapPin, Clock, User, Minus, Plus, Home, Crown, Star, ArmchairIcon } from 'lucide-react';
 import { Translation, Language, Match, Team, Mall, MatchVenueConfig, SeatTier } from '../../types';
+
+const SEAT_ICONS: Record<SeatTier, typeof Crown> = { vip: Crown, premium: Star, standard: ArmchairIcon };
+const SEAT_COLORS: Record<SeatTier, string> = { vip: 'text-amber-500 bg-amber-500/10 border-amber-500/20', premium: 'text-blue-500 bg-blue-500/10 border-blue-500/20', standard: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' };
 
 interface ReservationSectionProps {
   matches: Match[];
@@ -71,11 +74,11 @@ export const ReservationSection = ({
   };
 
   return (
-    <section id="reservation-section" className="px-4 md:px-6 py-16 md:py-20 bg-linear-to-b from-transparent to-black/40">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-5xl font-black tracking-tighter mb-3 uppercase">{T.reservationTitle}</h2>
-          <p className="text-neutral-500 text-sm md:text-base font-medium">{T.reservationSubtitle}</p>
+    <section id="reservation-section" className="px-4 md:px-6 py-8 md:py-12 bg-linear-to-b from-transparent to-black/40 min-h-screen flex items-center">
+      <div className="max-w-4xl mx-auto w-full">
+        <div className="text-center mb-6 md:mb-8">
+          <h2 className="text-2xl md:text-4xl font-black tracking-tighter mb-2 uppercase">{T.reservationTitle}</h2>
+          <p className="text-neutral-500 text-xs md:text-sm font-medium">{T.reservationSubtitle}</p>
         </div>
 
         <div className="card-blur p-5 md:p-8 rounded-[2rem] md:rounded-[2.5rem] max-w-xl mx-auto relative overflow-hidden">
@@ -172,28 +175,31 @@ export const ReservationSection = ({
             {step === 3 && (
               <motion.div key="s3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5 relative z-10">
                 <label className="text-[10px] font-black uppercase text-neutral-500 tracking-widest">{T.seatType}</label>
-                <div className="space-y-2.5">
-                  {(['standard', 'premium', 'vip'] as SeatTier[]).map(tier => {
+                <div className="grid grid-cols-3 gap-2.5">
+                  {(['vip', 'premium', 'standard'] as SeatTier[]).map(tier => {
+                    const Icon = SEAT_ICONS[tier];
                     const cfg = selectedConfig?.tiers?.[tier];
                     const price = cfg?.price || defaultPrices[tier];
                     const avail = cfg ? cfg.totalSeats - cfg.bookedSeats : 999;
                     const soldOut = avail <= 0;
+                    const selected = formData.placeType === tier;
                     return (
                       <button key={tier} disabled={soldOut}
                         onClick={() => onInputChange({ target: { name: 'placeType', value: tier } })}
-                        className={`seat-option w-full ${formData.placeType === tier ? 'selected' : ''} ${soldOut ? 'opacity-30 pointer-events-none' : ''}`}>
-                        <div className="seat-check">
-                          {formData.placeType === tier && <CheckCircle size={14} />}
+                        className={`relative flex flex-col items-center gap-1.5 p-3 md:p-4 rounded-2xl border-2 transition-all duration-200 ${
+                          selected ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10' : 'border-neutral-800/60 bg-neutral-900/40 hover:border-neutral-700'
+                        } ${soldOut ? 'opacity-30 pointer-events-none' : ''}`}>
+                        <div className={`w-9 h-9 md:w-12 md:h-12 rounded-xl flex items-center justify-center ${SEAT_COLORS[tier]}`}>
+                          <Icon size={18} className="md:size-6" />
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-black text-sm uppercase">{T[tier]}</span>
-                            <span className="font-black text-sm text-primary">{price} SAR</span>
+                        <span className="font-black text-[9px] md:text-xs uppercase tracking-tight">{T[tier]}</span>
+                        <span className="font-black text-[10px] md:text-sm text-primary">{price} SAR</span>
+                        <span className="text-[7px] font-bold text-neutral-500">{avail} {T.seatsRemaining}</span>
+                        {selected && (
+                          <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                            <CheckCircle size={10} className="text-white" />
                           </div>
-                          <div className="text-[10px] font-bold text-neutral-500 mt-0.5">
-                            {avail} {T.seatsRemaining}
-                          </div>
-                        </div>
+                        )}
                       </button>
                     );
                   })}
@@ -201,10 +207,10 @@ export const ReservationSection = ({
 
                 <div>
                   <label className="text-[10px] font-black uppercase text-neutral-500 tracking-widest block mb-2">{T.guests}</label>
-                  <div className="flex items-center justify-center gap-6 p-3 bg-neutral-900/40 rounded-2xl border border-neutral-800/60">
-                    <button onClick={decrementGuests} className="counter-btn"><Minus size={16} /></button>
-                    <span className="text-3xl font-black tracking-tighter w-12 text-center">{formData.guests}</span>
-                    <button onClick={incrementGuests} className="counter-btn"><Plus size={16} /></button>
+                  <div className="flex items-center justify-center gap-6 p-4 bg-neutral-900/40 rounded-2xl border border-neutral-800/60">
+                    <button onClick={decrementGuests} className="counter-btn"><Minus size={18} /></button>
+                    <span className="text-3xl md:text-4xl font-black tracking-tighter w-14 text-center tabular-nums">{formData.guests}</span>
+                    <button onClick={incrementGuests} className="counter-btn"><Plus size={18} /></button>
                   </div>
                 </div>
 
