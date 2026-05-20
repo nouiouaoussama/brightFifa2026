@@ -109,7 +109,7 @@ export default function App() {
       paymentStatus: 'unpaid',
       price: totalPrice,
       createdAt: Date.now(),
-      userId: user?.uid
+      ...(user?.uid ? { userId: user.uid } : {})
     };
 
     let finalRes: Reservation = { id: 'local_' + serial, ...reservationData };
