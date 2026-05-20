@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, loginWithGoogle, updateDocument, addDocument, setDocument, subscribeToCollection, subscribeToReservations, checkDuplicateBooking } from './services/firebase';
@@ -6,13 +6,20 @@ import { TRANSLATIONS } from './translations';
 import { Language, Match, Reservation, Theme, Team, Tournament, Mall, MatchVenueConfig, SeatTier } from './types';
 import { Navbar } from './components/layout/Navbar';
 import { HeroSection } from './components/home/HeroSection';
-import { FeaturedSlider } from './components/home/FeaturedSlider';
 import { ScheduleSection } from './components/home/ScheduleSection';
-import { ReservationSection } from './components/home/ReservationSection';
-import { TicketModal } from './components/home/TicketModal';
-import { AdminDashboard } from './components/admin/AdminDashboard';
-import { ShieldCheck, Globe, Phone, ExternalLink, MapPin, AlertTriangle, X } from 'lucide-react';
+import { ShieldCheck, Globe, Phone, ExternalLink, MapPin, AlertTriangle, X, Loader2 } from 'lucide-react';
 import { MATCHES, ALL_TEAMS, WORLD_CUP_2026, ALKHOBAR_PAVILION, DEFAULT_VENUE_CONFIGS } from './data/matches';
+
+const FeaturedSlider = lazy(() => import('./components/home/FeaturedSlider'));
+const ReservationSection = lazy(() => import('./components/home/ReservationSection'));
+const TicketModal = lazy(() => import('./components/home/TicketModal'));
+const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center py-20">
+    <Loader2 size={32} className="text-primary animate-spin" />
+  </div>
+);
 
 const generateSerial = () => 'BST-' + Math.floor(100000 + Math.random() * 900000);
 const WA_NUMBER = '213793374471';
@@ -192,8 +199,10 @@ export default function App() {
         {view === 'landing' && (
           <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <HeroSection T={T} lang={lang} />
-            <FeaturedSlider matches={matches} teams={teams} malls={malls} lang={lang} T={T}
-              onBook={(id) => { setSelectedMatchId(id); setSelectedMallId(''); setStep(1); setBookingError(''); setDuplicateError(''); setView('booking'); }} />
+            <Suspense fallback={<PageLoader />}>
+              <FeaturedSlider matches={matches} teams={teams} malls={malls} lang={lang} T={T}
+                onBook={(id) => { setSelectedMatchId(id); setSelectedMallId(''); setStep(1); setBookingError(''); setDuplicateError(''); setView('booking'); }} />
+            </Suspense>
             <ScheduleSection T={T} lang={lang} matches={matches} malls={malls}
               tournaments={tournaments} teams={teams} venueConfigs={venueConfigs}
               onBook={(id) => { setSelectedMatchId(id); setSelectedMallId(''); setStep(1); setBookingError(''); setDuplicateError(''); setView('booking'); }} />
@@ -215,42 +224,48 @@ export default function App() {
                 </div>
               </div>
             )}
-            <ReservationSection
-              matches={matches} malls={malls} teams={teams} T={T} lang={lang}
-              selectedMatchId={selectedMatchId} onSelectMatch={(id) => { setSelectedMatchId(id); setSelectedMallId(''); setDuplicateError(''); setBookingError(''); }}
-              onSubmit={handleBooking} step={step} setStep={setStep}
-              formData={bookingFormData} isBooking={isBooking}
-              onInputChange={(e: any) => setBookingFormData({ ...bookingFormData, [e.target.name]: e.target.value })}
-              venueConfigs={venueConfigs}
-              onBackToHome={() => { setStep(1); setView('landing'); setSelectedMatchId(null); setSelectedMallId(''); setBookingFormData({ name: '', phone: '', guests: 1, placeType: 'standard' as SeatTier }); setDuplicateError(''); setBookingError(''); }}
-              selectedMallId={selectedMallId}
-              onSelectVenue={(mallId) => { setSelectedMallId(mallId); }}
-              duplicateError={duplicateError}
-              bookingError={bookingError}
-            />
+            <Suspense fallback={<PageLoader />}>
+              <ReservationSection
+                matches={matches} malls={malls} teams={teams} T={T} lang={lang}
+                selectedMatchId={selectedMatchId} onSelectMatch={(id) => { setSelectedMatchId(id); setSelectedMallId(''); setDuplicateError(''); setBookingError(''); }}
+                onSubmit={handleBooking} step={step} setStep={setStep}
+                formData={bookingFormData} isBooking={isBooking}
+                onInputChange={(e: any) => setBookingFormData({ ...bookingFormData, [e.target.name]: e.target.value })}
+                venueConfigs={venueConfigs}
+                onBackToHome={() => { setStep(1); setView('landing'); setSelectedMatchId(null); setSelectedMallId(''); setBookingFormData({ name: '', phone: '', guests: 1, placeType: 'standard' as SeatTier }); setDuplicateError(''); setBookingError(''); }}
+                selectedMallId={selectedMallId}
+                onSelectVenue={(mallId) => { setSelectedMallId(mallId); }}
+                duplicateError={duplicateError}
+                bookingError={bookingError}
+              />
+            </Suspense>
           </motion.div>
         )}
 
         {view === 'admin' && user && (
           <motion.div key="admin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="pt-24 px-4 md:px-6 max-w-7xl mx-auto">
-            <AdminDashboard
-              reservations={reservations} matches={matches} teams={teams}
-              tournaments={tournaments} lang={lang} T={T} malls={malls}
-              venueConfigs={venueConfigs}
-              onUpdateReservation={(id, updates) => updateDocument('reservations', id, updates).catch(e => alert('Error: ' + e.message))}
-              onToggleMatch={(id, toggle) => updateDocument('matches', id, { isActive: toggle }).catch(e => alert('Error: ' + e.message))}
-            />
+            <Suspense fallback={<PageLoader />}>
+              <AdminDashboard
+                reservations={reservations} matches={matches} teams={teams}
+                tournaments={tournaments} lang={lang} T={T} malls={malls}
+                venueConfigs={venueConfigs}
+                onUpdateReservation={(id, updates) => updateDocument('reservations', id, updates).catch(e => alert('Error: ' + e.message))}
+                onToggleMatch={(id, toggle) => updateDocument('matches', id, { isActive: toggle }).catch(e => alert('Error: ' + e.message))}
+              />
+            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {lastReservation && (
-          <TicketModal
-            reservation={lastReservation} T={T} lang={lang}
-            onClose={() => setLastReservation(null)}
-            matches={matches} malls={malls} teams={teams} tournaments={tournaments}
-          />
+          <Suspense fallback={null}>
+            <TicketModal
+              reservation={lastReservation} T={T} lang={lang}
+              onClose={() => setLastReservation(null)}
+              matches={matches} malls={malls} teams={teams} tournaments={tournaments}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
 
