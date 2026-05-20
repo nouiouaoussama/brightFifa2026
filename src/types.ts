@@ -54,9 +54,12 @@ export interface Match {
   isArabMatch?: boolean;
   isSaudiMatch?: boolean;
   isFeatured?: boolean;
+  tags?: string[];
   round?: string;
   venueAr?: string;
   venueEn?: string;
+  scoreHome?: number;
+  scoreAway?: number;
 }
 
 export interface TierConfig {
@@ -90,6 +93,8 @@ export interface Reservation {
   userId?: string;
   notes?: string;
   waSent?: boolean;
+  archived?: boolean;
+  editHistory?: { field: string; from: string; to: string; at: number }[];
 }
 
 export interface AdminSettings {
@@ -243,4 +248,25 @@ export interface Translation {
   confirmPayment: string;
   totalBooked: string;
   remainingSeats: string;
+  archive: string;
+  restore: string;
+  archived: string;
+  activeReservations: string;
+  archivedReservations: string;
+  editReservation: string;
+  editSeatType: string;
+  editGuestCount: string;
+  editMatch: string;
+  matchTags: string;
+  addTag: string;
+  featuredMatches: string;
+  watchNow: string;
+  slideshow: string;
+  live: string;
+  ended: string;
+  totalReservations: string;
+  editDetails: string;
+  saveChanges: string;
+  archiveConfirm: string;
+  restoreConfirm: string;
 }

@@ -6,6 +6,7 @@ import { TRANSLATIONS } from './translations';
 import { Language, Match, Reservation, Theme, Team, Tournament, Mall, MatchVenueConfig, SeatTier } from './types';
 import { Navbar } from './components/layout/Navbar';
 import { HeroSection } from './components/home/HeroSection';
+import { FeaturedSlider } from './components/home/FeaturedSlider';
 import { ScheduleSection } from './components/home/ScheduleSection';
 import { ReservationSection } from './components/home/ReservationSection';
 import { TicketModal } from './components/home/TicketModal';
@@ -176,6 +177,8 @@ export default function App() {
         {view === 'landing' && (
           <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <HeroSection T={T} lang={lang} />
+            <FeaturedSlider matches={matches} teams={teams} malls={malls} lang={lang} T={T}
+              onBook={(id) => { setSelectedMatchId(id); setStep(1); setBookingError(''); setView('booking'); }} />
             <ScheduleSection T={T} lang={lang} matches={matches} malls={malls}
               tournaments={tournaments} teams={teams} venueConfigs={venueConfigs}
               onBook={(id) => { setSelectedMatchId(id); setStep(1); setBookingError(''); setView('booking'); }} />

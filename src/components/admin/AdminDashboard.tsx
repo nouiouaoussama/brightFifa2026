@@ -5,10 +5,10 @@ import {
   XCircle, Phone, CreditCard, Calendar, Clock, Plus,
   Globe, Trophy, ShieldCheck, Upload, Trash2, Filter,
   DollarSign, UserCheck, Ticket, Edit3, Save, X,
-  Download, FileSpreadsheet
+  Download, FileSpreadsheet, Archive, RotateCcw, Tag, PenSquare
 } from 'lucide-react';
 import { Translation, Language, Match, Team, Tournament, Mall, Reservation, MatchVenueConfig, SeatTier } from '../../types';
-import { db, updateDocument, addDocument, deleteDocument, setDocument, seedInitialData, bulkImportMatches, importFromCsv, syncLocalReservations, testFirestoreConnection } from '../../services/firebase';
+import { updateDocument, addDocument, deleteDocument, setDocument, seedInitialData, bulkImportMatches, importFromCsv, syncLocalReservations, testFirestoreConnection } from '../../services/firebase';
 import { MATCHES, ALL_TEAMS, WORLD_CUP_2026, ALKHOBAR_PAVILION } from '../../data/matches';
 
 interface AdminDashboardProps {
@@ -31,12 +31,18 @@ export const AdminDashboard = ({
   const [activeTab, setActiveTab] = useState<'reservations' | 'matches' | 'venues' | 'data'>('reservations');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMatchId, setFilterMatchId] = useState('all');
+  const [filterArchive, setFilterArchive] = useState<'active' | 'archived' | 'all'>('all');
   const [showAddMatch, setShowAddMatch] = useState(false);
   const [editingConfig, setEditingConfig] = useState<string | null>(null);
   const [editTiers, setEditTiers] = useState<any>(null);
   const [bulkJson, setBulkJson] = useState('');
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editReservation, setEditReservation] = useState<Reservation | null>(null);
+  const [editResForm, setEditResForm] = useState({ placeType: '' as SeatTier | '', guests: 1 });
+  const [editMatchId, setEditMatchId] = useState<string | null>(null);
+  const [editMatchForm, setEditMatchForm] = useState<any>(null);
+  const [tagInput, setTagInput] = useState('');
 
   const [diagResult, setDiagResult] = useState<{ ok: boolean; message: string; dbId: string } | null>(null);
   const [diagLoading, setDiagLoading] = useState(false);
@@ -56,7 +62,10 @@ export const AdminDashboard = ({
     const matchesSearch = r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.phone.includes(searchQuery) || r.serial?.includes(searchQuery);
     const matchesFilter = filterMatchId === 'all' || r.matchId === filterMatchId;
-    return matchesSearch && matchesFilter;
+    const archiveFilter = filterArchive === 'all' ||
+      (filterArchive === 'archived' && r.archived) ||
+      (filterArchive === 'active' && !r.archived);
+    return matchesSearch && matchesFilter && archiveFilter;
   });
 
   const totalRevenue = reservations.reduce((a, r) => a + (r.paymentStatus === 'paid' ? r.price : 0), 0);
@@ -172,21 +181,37 @@ export const AdminDashboard = ({
       <AnimatePresence mode="wait">
         {activeTab === 'reservations' && (
           <motion.div key="res" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-            <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex flex-col gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-600" size={14} />
                 <input placeholder={lang === 'ar' ? 'بحث...' : 'Search...'} className="input-field pl-10 py-2.5 text-xs"
                   value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
               </div>
-              <select className="bg-white/[0.04] border border-white/[0.06] rounded-2xl px-4 py-2.5 text-xs font-bold w-full md:w-auto"
-                value={filterMatchId} onChange={e => setFilterMatchId(e.target.value)}>
-                <option value="all">{lang === 'ar' ? 'كل المباريات' : 'All Matches'}</option>
-                {matches.map(m => {
-                  const t1 = teams.find(t => t.id === m.team1Id);
-                  const t2 = teams.find(t => t.id === m.team2Id);
-                  return <option key={m.id} value={m.id}>{t1?.nameEn} vs {t2?.nameEn}</option>;
-                })}
-              </select>
+              <div className="flex gap-2">
+                <select className="bg-white/[0.04] border border-white/[0.06] rounded-2xl px-4 py-2.5 text-xs font-bold flex-1"
+                  value={filterMatchId} onChange={e => setFilterMatchId(e.target.value)}>
+                  <option value="all">{lang === 'ar' ? 'كل المباريات' : 'All Matches'}</option>
+                  {matches.map(m => {
+                    const t1 = teams.find(t => t.id === m.team1Id);
+                    const t2 = teams.find(t => t.id === m.team2Id);
+                    return <option key={m.id} value={m.id}>{t1?.nameEn} vs {t2?.nameEn}</option>;
+                  })}
+                </select>
+              </div>
+              <div className="flex gap-1.5">
+                {[
+                  { id: 'all', label: lang === 'ar' ? 'الكل' : 'All' },
+                  { id: 'active', label: T.activeReservations },
+                  { id: 'archived', label: T.archivedReservations },
+                ].map(f => (
+                  <button key={f.id} onClick={() => setFilterArchive(f.id as any)}
+                    className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${
+                      filterArchive === f.id ? 'bg-primary text-white' : 'bg-white/[0.04] text-neutral-500 border border-white/[0.06]'
+                    }`}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -195,7 +220,9 @@ export const AdminDashboard = ({
                 const t1 = teams.find(t => t.id === m?.team1Id);
                 const t2 = teams.find(t => t.id === m?.team2Id);
                 return (
-                  <div key={res.id} className="card-blur p-4 rounded-2xl border border-white/[0.04] hover:border-primary/20 transition-all">
+                  <div key={res.id} className={`card-blur p-4 rounded-2xl border transition-all ${
+                    res.archived ? 'border-neutral-800/40 opacity-60 hover:opacity-100' : 'border-white/[0.04] hover:border-primary/20'
+                  }`}>
                     <div className="flex flex-col md:flex-row gap-3 md:items-center">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center border ${
@@ -207,30 +234,45 @@ export const AdminDashboard = ({
                           <div className="flex items-center gap-2 mb-0.5">
                             <h4 className="font-black text-xs uppercase truncate">{res.name}</h4>
                             <span className="text-[7px] font-bold text-neutral-600 bg-white/[0.04] px-1.5 py-0.5 rounded-full">#{res.serial}</span>
+                            {res.archived && <span className="text-[6px] font-black text-neutral-600 bg-neutral-800/40 px-1.5 py-0.5 rounded-full uppercase">{T.archived}</span>}
                           </div>
                           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[8px] font-bold text-neutral-500">
                             <span className="flex items-center gap-1"><Phone size={8} /> {res.phone}</span>
                             <span>{t1?.nameEn} vs {t2?.nameEn}</span>
                             <span className="text-white/70">{res.price} SAR</span>
+                            <span className="uppercase text-primary/60">{res.placeType}</span>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button onClick={() => {
+                          setEditReservation(res);
+                          setEditResForm({ placeType: res.placeType, guests: res.guests });
+                        }}
+                          className="p-2 bg-white/[0.04] rounded-xl border border-white/[0.06] hover:border-primary/30 hover:text-primary transition-all">
+                          <Edit3 size={11} />
+                        </button>
                         <button onClick={() => onUpdateReservation(res.id!, { paymentStatus: res.paymentStatus === 'paid' ? 'unpaid' : 'paid' })}
-                          className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase flex items-center gap-1.5 transition-all ${
+                          className={`px-2.5 py-2 rounded-xl text-[7px] font-black uppercase transition-all ${
                             res.paymentStatus === 'paid' ? 'bg-green-500/10 text-green-500' : 'bg-white/[0.04] text-neutral-500 border border-white/[0.06]'
                           }`}>
-                          <DollarSign size={10} /> {res.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
+                          <DollarSign size={10} />
                         </button>
                         <button onClick={() => onUpdateReservation(res.id!, { attendanceStatus: res.attendanceStatus === 'attended' ? 'not_attended' : 'attended' })}
-                          className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase flex items-center gap-1.5 transition-all ${
+                          className={`px-2.5 py-2 rounded-xl text-[7px] font-black uppercase transition-all ${
                             res.attendanceStatus === 'attended' ? 'bg-primary text-white' : 'bg-white/[0.04] text-neutral-500 border border-white/[0.06]'
                           }`}>
-                          <UserCheck size={10} /> {res.attendanceStatus === 'attended' ? 'Done' : 'Check'}
+                          <UserCheck size={10} />
+                        </button>
+                        <button onClick={() => onUpdateReservation(res.id!, { archived: !res.archived })}
+                          className={`p-2 rounded-xl border transition-all ${
+                            res.archived ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-white/[0.04] border-white/[0.06] text-neutral-500 hover:text-amber-500'
+                          }`}>
+                          {res.archived ? <RotateCcw size={11} /> : <Archive size={11} />}
                         </button>
                         <a href={`https://wa.me/${res.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer"
                           className="p-2 bg-white/[0.04] rounded-xl border border-white/[0.06] hover:bg-[#25D366] hover:text-white transition-all">
-                          <Phone size={12} />
+                          <Phone size={11} />
                         </a>
                       </div>
                     </div>
@@ -241,6 +283,56 @@ export const AdminDashboard = ({
                 <div className="text-center py-12 text-neutral-600 text-sm font-bold">{T.noReservations}</div>
               )}
             </div>
+
+            <AnimatePresence>
+              {editReservation && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                  onClick={() => setEditReservation(null)}>
+                  <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
+                    className="bg-neutral-900 border border-white/[0.06] rounded-[2rem] p-6 w-full max-w-sm"
+                    onClick={e => e.stopPropagation()}>
+                    <h3 className="text-sm font-black uppercase mb-4">{T.editReservation}</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[8px] font-black uppercase text-neutral-500 mb-1 block">{T.seatType}</label>
+                        <select className="input-field py-2.5 text-xs" value={editResForm.placeType}
+                          onChange={e => setEditResForm({ ...editResForm, placeType: e.target.value as SeatTier })}>
+                          {(['standard', 'premium', 'vip'] as SeatTier[]).map(t => (
+                            <option key={t} value={t} className="bg-neutral-950">{T[t]}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[8px] font-black uppercase text-neutral-500 mb-1 block">{T.guests}</label>
+                        <input type="number" min="1" max="20" className="input-field py-2.5 text-xs"
+                          value={editResForm.guests} onChange={e => setEditResForm({ ...editResForm, guests: Number(e.target.value) })} />
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <button onClick={async () => {
+                          if (!editReservation.id) return;
+                          const match = matches.find(mx => mx.id === editReservation.matchId);
+                          const config = venueConfigs.find(v => v.matchId === editReservation.matchId);
+                          const unitPrice = config?.tiers?.[editResForm.placeType as SeatTier]?.price || 50;
+                          await onUpdateReservation(editReservation.id, {
+                            placeType: editResForm.placeType,
+                            guests: editResForm.guests,
+                            price: unitPrice * editResForm.guests,
+                          });
+                          setEditReservation(null);
+                        }} className="flex-1 bg-primary text-white py-3 rounded-xl font-black text-[9px] uppercase">
+                          {T.saveChanges}
+                        </button>
+                        <button onClick={() => setEditReservation(null)}
+                          className="px-6 py-3 border border-white/[0.06] rounded-xl font-black text-[9px] uppercase text-neutral-500">
+                          {T.cancel}
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
 
@@ -292,52 +384,105 @@ export const AdminDashboard = ({
                 const t1 = teams.find(t => t.id === m.team1Id);
                 const t2 = teams.find(t => t.id === m.team2Id);
                 const config = venueConfigs.find(v => v.matchId === m.id);
+                const isEditing = editMatchId === m.id;
                 return (
                   <div key={m.id} className="card-blur p-4 rounded-2xl border border-white/[0.04] space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex -space-x-2">
-                          <div className="w-9 h-9 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-center p-1.5 z-10">
-                            <img src={t1?.logoUrl} className="w-full h-full object-contain" />
-                          </div>
-                          <div className="w-9 h-9 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-center p-1.5">
-                            <img src={t2?.logoUrl} className="w-full h-full object-contain" />
-                          </div>
+                    {isEditing ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <select className="input-field py-2 text-[9px]" value={editMatchForm.team1Id}
+                            onChange={e => setEditMatchForm({...editMatchForm, team1Id: e.target.value})}>
+                            {teams.map(t => <option key={t.id} value={t.id}>{t.nameEn}</option>)}
+                          </select>
+                          <select className="input-field py-2 text-[9px]" value={editMatchForm.team2Id}
+                            onChange={e => setEditMatchForm({...editMatchForm, team2Id: e.target.value})}>
+                            {teams.map(t => <option key={t.id} value={t.id}>{t.nameEn}</option>)}
+                          </select>
+                          <input className="input-field py-2 text-[9px]" value={editMatchForm.dateEn}
+                            onChange={e => setEditMatchForm({...editMatchForm, dateEn: e.target.value})} />
+                          <input className="input-field py-2 text-[9px]" value={editMatchForm.dateAr}
+                            onChange={e => setEditMatchForm({...editMatchForm, dateAr: e.target.value})} />
+                          <input className="input-field py-2 text-[9px]" value={editMatchForm.time}
+                            onChange={e => setEditMatchForm({...editMatchForm, time: e.target.value})} />
+                          <input className="input-field py-2 text-[9px]" value={editMatchForm.groupEn}
+                            onChange={e => setEditMatchForm({...editMatchForm, groupEn: e.target.value})} />
                         </div>
-                        <div>
-                          <div className="text-xs font-black uppercase">{t1?.nameEn} vs {t2?.nameEn}</div>
-                          <div className="text-[8px] font-bold text-neutral-500">{m.dateEn} • {m.time} AST</div>
+                        <div className="flex gap-2">
+                          <button onClick={async () => {
+                            await updateDocument('matches', m.id, editMatchForm);
+                            setEditMatchId(null);
+                          }} className="flex-1 bg-primary text-white py-2 rounded-xl text-[8px] font-black uppercase">{T.saveChanges}</button>
+                          <button onClick={() => setEditMatchId(null)} className="px-4 py-2 border border-white/[0.06] rounded-xl text-[8px] font-black uppercase text-neutral-500">{T.cancel}</button>
                         </div>
                       </div>
-                      <button onClick={() => onToggleMatch(m.id, !m.isActive)}
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
-                          m.isActive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-                        }`}>
-                        {m.isActive ? <CheckCircle size={16} /> : <XCircle size={16} />}
-                      </button>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="flex -space-x-2">
+                              <div className="w-9 h-9 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-center p-1.5 z-10">
+                                <img src={t1?.logoUrl} className="w-full h-full object-contain" />
+                              </div>
+                              <div className="w-9 h-9 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-center p-1.5">
+                                <img src={t2?.logoUrl} className="w-full h-full object-contain" />
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-xs font-black uppercase">{t1?.nameEn} vs {t2?.nameEn}</div>
+                              <div className="text-[8px] font-bold text-neutral-500">{m.dateEn} • {m.time} AST</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => {
+                              setEditMatchId(m.id);
+                              setEditMatchForm({ team1Id: m.team1Id, team2Id: m.team2Id, dateEn: m.dateEn, dateAr: m.dateAr, time: m.time, groupEn: m.groupEn, groupAr: m.groupAr });
+                            }} className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:text-primary transition-all">
+                              <PenSquare size={11} />
+                            </button>
+                            <button onClick={() => onToggleMatch(m.id, !m.isActive)}
+                              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                                m.isActive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                              }`}>
+                              {m.isActive ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                            </button>
+                          </div>
+                        </div>
 
-                    <div className="flex flex-wrap gap-1.5">
-                      {[
-                        { key: 'isSaudiMatch', label: 'Saudi' },
-                        { key: 'isArabMatch', label: 'Arab' },
-                        { key: 'isFeatured', label: 'Featured' }
-                      ].map(tag => (
-                        <button key={tag.key}
-                          onClick={() => updateDocument('matches', m.id, { [tag.key]: !((m as any)[tag.key]) })}
-                          className={`px-2.5 py-1 rounded-lg text-[7px] font-black uppercase border transition-all ${
-                            (m as any)[tag.key] ? 'bg-white/[0.08] border-white/[0.12] text-white' : 'bg-transparent border-white/[0.04] text-neutral-600'
-                          }`}>
-                          {tag.label}
-                        </button>
-                      ))}
-                      <button onClick={() => { if(confirm('Delete?')) deleteDocument('matches', m.id); }}
-                        className="ml-auto p-1.5 text-neutral-700 hover:text-red-500 transition-colors">
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { key: 'isSaudiMatch', label: 'Saudi' },
+                            { key: 'isArabMatch', label: 'Arab' },
+                            { key: 'isFeatured', label: 'Featured' }
+                          ].map(tag => (
+                            <button key={tag.key}
+                              onClick={() => updateDocument('matches', m.id, { [tag.key]: !((m as any)[tag.key]) })}
+                              className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase border transition-all ${
+                                (m as any)[tag.key] ? 'bg-white/[0.08] border-white/[0.12] text-white' : 'bg-transparent border-white/[0.04] text-neutral-600'
+                              }`}>
+                              {tag.label}
+                            </button>
+                          ))}
+                          {(m.tags || []).map(tag => (
+                            <span key={tag} className="px-2 py-1 rounded-lg text-[7px] font-black uppercase bg-primary/10 border border-primary/20 text-primary">{tag}</span>
+                          ))}
+                          <button onClick={() => {
+                            const newTag = prompt(lang === 'ar' ? 'أضف وسم تصفية:' : 'Add filter tag:');
+                            if (newTag?.trim()) {
+                              const tags = [...(m.tags || []), newTag.trim()];
+                              updateDocument('matches', m.id, { tags });
+                            }
+                          }} className="px-2 py-1 rounded-lg text-[7px] font-black uppercase border border-dashed border-white/[0.12] text-neutral-500 hover:text-primary transition-all">
+                            <Tag size={10} className="inline" /> {T.addTag}
+                          </button>
+                          <button onClick={() => { if(confirm('Delete?')) deleteDocument('matches', m.id); }}
+                            className="ml-auto p-1.5 text-neutral-700 hover:text-red-500 transition-colors">
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
+                      </>
+                    )}
 
-                    {config && (
+                    {config && !isEditing && (
                       <div className="border-t border-white/[0.04] pt-3">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-[8px] font-black uppercase text-neutral-500">{T.manageVenues}</span>
@@ -350,16 +495,22 @@ export const AdminDashboard = ({
                             {(Object.entries(editTiers) as [SeatTier, any][]).map(([tier, cfg]) => (
                               <div key={tier} className="grid grid-cols-3 gap-2 text-[10px]">
                                 <span className="font-bold uppercase text-neutral-500">{tier}</span>
-                                <input type="number" className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-1 text-xs w-full"
-                                  value={cfg.price} onChange={e => {
-                                    const newTiers = { ...editTiers, [tier]: { ...cfg, price: Number(e.target.value) } };
-                                    setEditTiers(newTiers);
-                                  }} />
-                                <input type="number" className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-1 text-xs w-full"
-                                  value={cfg.totalSeats} onChange={e => {
-                                    const newTiers = { ...editTiers, [tier]: { ...cfg, totalSeats: Number(e.target.value) } };
-                                    setEditTiers(newTiers);
-                                  }} />
+                                <div>
+                                  <span className="text-[6px] text-neutral-600 block">{T.price}</span>
+                                  <input type="number" className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-1 text-xs w-full"
+                                    value={cfg.price} onChange={e => {
+                                      const newTiers = { ...editTiers, [tier]: { ...cfg, price: Number(e.target.value) } };
+                                      setEditTiers(newTiers);
+                                    }} />
+                                </div>
+                                <div>
+                                  <span className="text-[6px] text-neutral-600 block">{lang === 'ar' ? 'مقاعد' : 'Seats'}</span>
+                                  <input type="number" className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-1 text-xs w-full"
+                                    value={cfg.totalSeats} onChange={e => {
+                                      const newTiers = { ...editTiers, [tier]: { ...cfg, totalSeats: Number(e.target.value) } };
+                                      setEditTiers(newTiers);
+                                    }} />
+                                </div>
                               </div>
                             ))}
                             <div className="flex gap-2 pt-1">
@@ -376,6 +527,7 @@ export const AdminDashboard = ({
                             {(Object.entries(config.tiers) as [SeatTier, any][]).map(([tier, cfg]) => (
                               <span key={tier} className="text-neutral-500 uppercase">
                                 {tier}: <span className="text-white">{cfg.bookedSeats}/{cfg.totalSeats}</span>
+                                <span className="text-neutral-600"> · {cfg.price} SAR</span>
                               </span>
                             ))}
                           </div>
