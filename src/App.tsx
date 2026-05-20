@@ -193,17 +193,17 @@ export default function App() {
           <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <HeroSection T={T} lang={lang} />
             <FeaturedSlider matches={matches} teams={teams} malls={malls} lang={lang} T={T}
-              onBook={(id) => { setSelectedMatchId(id); setStep(1); setBookingError(''); setView('booking'); }} />
+              onBook={(id) => { setSelectedMatchId(id); setSelectedMallId(''); setStep(1); setBookingError(''); setDuplicateError(''); setView('booking'); }} />
             <ScheduleSection T={T} lang={lang} matches={matches} malls={malls}
               tournaments={tournaments} teams={teams} venueConfigs={venueConfigs}
-              onBook={(id) => { setSelectedMatchId(id); setStep(1); setBookingError(''); setView('booking'); }} />
+              onBook={(id) => { setSelectedMatchId(id); setSelectedMallId(''); setStep(1); setBookingError(''); setDuplicateError(''); setView('booking'); }} />
           </motion.div>
         )}
 
         {view === 'booking' && (
           <motion.div key="booking" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="pt-24">
             <div className="max-w-4xl mx-auto px-4">
-              <button onClick={() => setView('landing')} className="btn-ghost mb-4 flex items-center gap-2">
+              <button onClick={() => { setStep(1); setSelectedMatchId(null); setSelectedMallId(''); setBookingFormData({ name: '', phone: '', guests: 1, placeType: 'standard' as SeatTier }); setBookingError(''); setDuplicateError(''); setView('landing'); }} className="btn-ghost mb-4 flex items-center gap-2">
                 ← {T.back}
               </button>
             </div>
@@ -222,7 +222,7 @@ export default function App() {
               formData={bookingFormData} isBooking={isBooking}
               onInputChange={(e: any) => setBookingFormData({ ...bookingFormData, [e.target.name]: e.target.value })}
               venueConfigs={venueConfigs}
-              onBackToHome={() => { setStep(1); setView('landing'); setSelectedMatchId(null); setSelectedMallId(''); setDuplicateError(''); setBookingError(''); }}
+              onBackToHome={() => { setStep(1); setView('landing'); setSelectedMatchId(null); setSelectedMallId(''); setBookingFormData({ name: '', phone: '', guests: 1, placeType: 'standard' as SeatTier }); setDuplicateError(''); setBookingError(''); }}
               selectedMallId={selectedMallId}
               onSelectVenue={(mallId) => { setSelectedMallId(mallId); }}
               duplicateError={duplicateError}
